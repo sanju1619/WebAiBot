@@ -1,0 +1,38 @@
+from fastapi import FastAPI
+import requests
+from bs4 import BeautifulSoup
+import openai
+
+# Initialize FastAPI app
+app = FastAPI()
+
+# OpenAI API Key (Replace with your own key)
+OPENAI_API_KEY = "your_openai_api_key"
+
+def scrape_website(url):
+    """Scrapes text content from a website."""
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    
+    # Extract all text from the website
+    text = " ".join([p.text for p in soup.find_all("p")])
+    return text[:4000]  # Limit text length to 4000 chars (API restriction)
+
+def get_ai_response(prompt):
+    """Uses OpenAI GPT to generate an answer based on scraped data."""
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "system", "content": "You are an AI assistant."},
+                  {"role": "user", "content": prompt}],
+        api_key=OPENAI_API_KEY
+    )
+    return response["choices"][0]["message"]["content"]
+
+@app.get("/ask")
+def ask_question(url: str, question: str):
+    """API endpoint to fetch website data and generate an AI response."""
+    scraped_data = scrape_website(url)
+    full_prompt = f"Based on this website information: {scraped_data}, answer this question: {question}"
+    
+    answer = get_ai_response(full_prompt)
+    return {"answer": answer}
